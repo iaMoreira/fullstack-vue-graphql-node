@@ -19,11 +19,17 @@
             <ul class="list-group">
               <li class="list-group-item" v-for="domain in domains" v-bind:key="domain.id">
                  <div class="row">
-                      <div class="col- md">
+                      <div class="col-md-6">
                         {{domain.name}}
+                      </div>
+                      <div class="col-md-3">
+                        <span class="badge badge-info">{{(domain.available) ? "Disponível" : "Não Disponível" }}</span>
                       </div>
                       <div class="col-md text-right">
                         <a class="btn btn-info" v-bind:href=domain.checkout target="_blank" ><span class="fa fa-shopping-cart"></span></a>
+                        <button class="btn btn-info" @click="openDomain(domain)">
+                          <span class="fa fa-search"></span>
+                        </button>
                       </div>
                     </div>
               </li>
@@ -36,109 +42,28 @@
 </template>
 
 <script>
-import axios from "axios/dist/axios";
+import {mapState, mapActions} from "vuex";
 import AppItemList from "./AppItemList";
-
 export default {
   name: "app",
   components: {
     AppItemList
   },
 	data: () => ({
-		items: {
-      prefix: [],
-      sufix: [] 
-    }
+		
   }),
   methods: {
-    addItem(item) {
-      // this.prefixes.push(prefix);
-      axios({
-        url: "http://localhost:4000",
-        method: "post",
-        data: {
-          query: `
-            mutation ($item: ItemInput){
-              newItem: saveItem(item: $item){
-                id
-                type
-                description
-              }
-            }
-          `, 
-          variables: {
-            item
-          }
-        }
-      }).then(response => {
-        const query = response.data;
-        const newItem = query.data.newItem;
-        this.items[item.type ].push(newItem); 
+   ...mapActions(["addItem", "deleteItem", "getItems", "generateDomains"]),
+    openDomain(domain){
+      this.$router.push({
+        path: `/domains/${domain.name}`
       });
-    },
-    deleteItem(item) {
-      axios({
-        url: "http://localhost:4000",
-        method: "post",
-        data: {
-          query: `
-            mutation ($id: Int) {
-             deleted: deleteItem(id: $id)
-            }
-          `,
-          variables: {
-            id: item.id
-          }
-        }
-      }).then(() => {
-        this.getItems(item.type);
-      });
-    },
-    getItems(type) {
-      axios({
-      url: "http://localhost:4000",
-      method: "post",
-      data: {
-        query: `
-            query ($type: String) {
-              items: items (type: $type) {
-                id
-                type
-                description
-              }
-            }
-        `,
-        variables: {
-          type
-        } 
-      }
-      }).then(response => {
-        const query = response.data;
-        this.items[type] = query.data.items;
-      });
-    },
+    }
 
   },
   computed: {
-    domains() {
-      const domains = [];
-      for (const prefix of this.items.prefix) {
-        for (const sufix of this.items.sufix) {
-          const name = prefix.description + sufix.description;
-          const  url = name.toLowerCase();
-          const checkout = `https://checkout.hostgator.com.br/?a=add&sld=${url}&tld=.com.br&_ga=2.169899304.907091929.1579578606-158747818.1579578606`;
-          domains.push({
-            name,
-            checkout
-            });
-        }
-      }
-      return domains;
-    }
+   ...mapState(["items", "domains"])
   },
-  created() {
-    this.getItems("prefix");
-    this.getItems("sufix");
-  },
+  
 };
 </script>

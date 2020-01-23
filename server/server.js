@@ -1,11 +1,18 @@
-const {ApolloServer} = require('apollo-server');
+const { ApolloServer } = require("apollo-server");
+const dns = require("dns");
+
 const typeDefs = `
   type Item {
     id: Int
     type: String
     description: String
   }
-
+  type Domain {
+    name: String
+    extension: String
+    checkout: String
+    available: Boolean
+  }
   type Query {
     items (type: String): [Item]
   }
@@ -18,20 +25,29 @@ const typeDefs = `
   type Mutation {
     saveItem (item: ItemInput): Item
     deleteItem(id: Int) : Boolean
+    generateDomains: [Domain]
+    generateDomain(name: String): [Domain]
   }
   
 `;
 const items = [
-  {id: 1, type: "prefix", description: "Air"},
-  {id: 2, type: "prefix", description: "Jet"},
-  {id: 3, type: "prefix", description: "Flight"},
-  {id: 4, type: "sufix", description: "Hub"},
-  {id: 5, type: "sufix", description: "Station"},
-  {id: 6, type: "sufix", description: "Mart"},
-]
+  { id: 1, type: "prefix", description: "Air" },
+  { id: 2, type: "prefix", description: "Jet" },
+  { id: 3, type: "prefix", description: "Flight" },
+  { id: 4, type: "sufix", description: "Hub" },
+  { id: 5, type: "sufix", description: "Station" },
+  { id: 6, type: "sufix", description: "Mart" }
+];
+
+const isDomainAvaliable = function(url) {
+  return new Promise((resolve, reject) =>
+    dns.resolve(url, error => resolve(error ? true : false))
+  );
+};
+
 const resolvers = {
   Query: {
-    items(_, args){
+    items(_, args) {
       return items.filter(item => item.type === args.type);
     }
   },
@@ -42,14 +58,48 @@ const resolvers = {
       items.push(item);
       return item;
     },
-    deleteItem(_,args) {
+    deleteItem(_, args) {
       const id = args.id;
       const item = items.find(item => item.id === id);
-      if(!item) return false;
+      if (!item) return false;
       items.splice(items.indexOf(item, 1));
       return true;
+    },
+    async generateDomains() {
+      const domains = [];
+      for (const prefix of items.filter(item => item.type === "prefix")) {
+        for (const sufix of items.filter(item => item.type === "sufix")) {
+          const name = prefix.description + sufix.description;
+          const url = name.toLowerCase();
+          const checkout = `https://checkout.hostgator.com.br/?a=add&sld=${url}&tld=.com.br&_ga=2.169899304.907091929.1579578606-158747818.1579578606`;
+          const available = await isDomainAvaliable(`${url}.com.br`);
+          domains.push({
+            name,
+            checkout,
+            available
+          });
+        }
+      }
+      return domains;
+    },
+    async generateDomain(_, args) {
+      const name = args.name;
+      const extensions = [".com.br", ".com", ".net", ".org"];
+      const domains = [];
+      for(const extension of extensions){
+          const url = name.toLowerCase();
+          const checkout = `https://checkout.hostgator.com.br/?a=add&sld=${url}&tld=${extension}&_ga=2.169899304.907091929.1579578606-158747818.1579578606`;
+          const available = await isDomainAvaliable(`${url}${extension}`);
+          domains.push({
+            name,
+            extension,
+            checkout,
+            available
+          });
+      }
+      return domains;
     }
   }
-}
-const server = new ApolloServer({typeDefs, resolvers});
+};
+const server = new ApolloServer({ typeDefs, resolvers });
 server.listen();
